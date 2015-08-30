@@ -1,1 +1,1 @@
-# idp-maven-plugin
+# placeholder-maven-plugin

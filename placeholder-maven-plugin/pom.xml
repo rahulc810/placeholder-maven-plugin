@@ -2,12 +2,12 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>sample.plugin</groupId>
-  <artifactId>idp-maven-plugin</artifactId>
+  <groupId>com.open.maven.plugin</groupId>
+  <artifactId>placeholder-maven-plugin</artifactId>
   <version>1.0</version>
   <packaging>maven-plugin</packaging>
 
-  <name>idp-maven-plugin Maven Plugin</name>
+  <name>placeholder-maven-plugin Maven Plugin</name>
 
   <!-- FIXME change it to the project's website -->
   <url>http://maven.apache.org</url>
@@ -39,6 +39,11 @@
       <version>4.8.2</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+		<groupId>commons-io</groupId>
+		<artifactId>commons-io</artifactId>
+		<version>2.4</version>
+	</dependency>    
   </dependencies>
 
   <build>
@@ -48,7 +53,7 @@
         <artifactId>maven-plugin-plugin</artifactId>
         <version>3.2</version>
         <configuration>
-          <goalPrefix>idp-maven-plugin</goalPrefix>
+          <goalPrefix>placeholder</goalPrefix>
           <skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound>
         </configuration>
         <executions>
