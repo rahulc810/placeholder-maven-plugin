@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.CopyOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
@@ -11,6 +12,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +23,7 @@ import java.util.Properties;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -144,9 +149,68 @@ public class ExecJava extends AbstractMojo {
 		for (Path fn : renameList) {
 			updateRenameMapping(fn);
 		}
+		
+		getLog().info("RenameList =" + renameList.toString());
+		getLog().info("RenameMapping =" + renameMapping.toString());
+		
+		List<Path> sorted = new ArrayList<Path>(renameMapping.keySet());
+		Collections.sort(sorted , new Comparator<Path>() {
 
+			public int compare(Path o1, Path o2) {
+				int l1 = o1.toString().length();
+				int l2 = o2.toString().length();
+				
+				if(l1 > l2){
+					return 1;
+				}else if( l1 < l2){
+					return -1;
+				}
+				return 0;
+			}
+		});
+		
 		for (Path p : renameMapping.keySet()) {
-			p.toFile().renameTo(renameMapping.get(p).toFile());
+			try {
+				copyPaths(p, renameMapping.get(p));
+			} catch (IOException e) {
+				throw new MojoExecutionException("Failed to write to path: " + renameMapping.get(p));
+			}
+		}
+
+		
+		//now retraverse everything and delete placeholder heirarchies
+		
+		//cleanup();
+		
+	}
+		
+	void cleanup() throws MojoExecutionException{
+		try {
+			Files.walkFileTree(Paths.get(basePath.getPath()), new FileVisitor<Path>() {
+
+				public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+					handleDelete(dir);
+					return FileVisitResult.CONTINUE;
+				}
+
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					handleDelete(file);
+					return FileVisitResult.CONTINUE;
+				}
+
+				public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+					handleDelete(file);
+					return FileVisitResult.CONTINUE;
+				}
+
+				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+					handleDelete(dir);
+					return FileVisitResult.CONTINUE;
+				}
+
+			});
+		} catch (IOException e) {
+			throw new MojoExecutionException("Failed during traversing the directory. " + e);
 		}
 	}
 
@@ -176,6 +240,7 @@ public class ExecJava extends AbstractMojo {
 		String temp = "";
 
 		String filename = p.getFileName().toString();
+		filename = p.toString();
 		temp = filename;
 		for (Entry<Object, Object> e : replace.entrySet()) {
 			if (e.getValue() == null || e.getKey() == null) {
@@ -185,9 +250,45 @@ public class ExecJava extends AbstractMojo {
 		}
 
 		if (!filename.equals(temp)) {
-			String parentPath = p.getParent().toString() + '/';
-			renameMapping.put(p, Paths.get(parentPath + temp));
+			//String parentPath = p.getParent().toString() + '/';
+			renameMapping.put(p, Paths.get(temp));
 		}
 
+	}
+		
+	private void copyPaths(Path src, Path target) throws IOException{
+		if(src.toFile().isDirectory()){
+			FileUtils.copyDirectory(src.toFile(), target.toFile());
+		}else{	
+			FileUtils.copyFile(src.toFile(), target.toFile());
+		}		
+	}
+	
+	private void  handleDelete(Path p){
+		for (Entry<String, Pattern> e : replaceNamePatterns.entrySet()) {
+			// fetch the pattern for the key and replace it in line
+			String normalize = e.getValue().toString();
+			normalize = normalize.replaceAll("\\\\", "");
+			if(p.toString().contains(normalize)){
+				getLog().info("DEleteing: " + p.toString());
+				FileUtils.deleteQuietly(p.toFile());
+			}
+		}
+	}
+	
+	public static void main(String[] args) {
+		Path p = Paths.get("C:\\Users\\rahul.chauhan\\workspace\\idps\\shared_services\\replace-plugin\\[tenant]-[appliance.version]");
+		
+		System.out.println(p);
+		
+		String normalize = "\\[tenant\\]";
+		normalize = normalize.replaceAll("\\\\", "");
+		
+		System.out.println(p.toString().contains(normalize));
+		
+		
+		System.out.println(normalize);
+		
+		
 	}
 }
