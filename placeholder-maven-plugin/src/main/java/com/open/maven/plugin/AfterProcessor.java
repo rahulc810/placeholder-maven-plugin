@@ -15,11 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
@@ -32,17 +28,13 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
-import com.open.maven.plugin.common.ReplaceUtility;
-
-@Mojo(name = "exec")
-public class ExecJava extends AbstractMojo {
+@Mojo(name = "after")
+public class AfterProcessor extends AbstractMojo {
 
 	private boolean isInitialized;
 	private Properties replace;
 	private Map<String, Pattern> replacePatterns;
 	private Map<String, Pattern> replaceNamePatterns;
-	private List<Path> renameList;
-	private Map<Path, Path> renameMapping;
 
 	@Parameter(defaultValue = "${project.build.directory}", property = "outputDir", required = false)
 	private File outputDirectory;
@@ -53,7 +45,7 @@ public class ExecJava extends AbstractMojo {
 	@Parameter(property = "tenantPropLocation", required = true)
 	private String tenantPropLocation;
 
-	public ExecJava() throws FileNotFoundException, IOException {
+	public AfterProcessor() throws FileNotFoundException, IOException {
 		super();
 
 		replace = new Properties();
@@ -67,15 +59,6 @@ public class ExecJava extends AbstractMojo {
 		 */
 		this.replaceNamePatterns = new HashMap<String, Pattern>();
 
-		/**
-		 * Internal list to keep track of which files need be renamed.
-		 */
-		this.renameList = new ArrayList<Path>();
-
-		/**
-		 * Mapping for before -> after file path mapping
-		 */
-		this.renameMapping = new HashMap<Path, Path>();
 	}
 
 	private void init() throws FileNotFoundException, IOException {
@@ -100,6 +83,8 @@ public class ExecJava extends AbstractMojo {
 
 		}
 
+		this.basePath = this.basePath.getParentFile();
+
 		this.isInitialized = true;
 	}
 
@@ -115,70 +100,20 @@ public class ExecJava extends AbstractMojo {
 			}
 		}
 
+		// add sps
+/*
+		String srcIdpMD = "/[tenant]-[appliance.version]/idau/src/main/resources/com/hcentive/iam/[tenant]/idau/[tenant]idp/[tenant]idp-samlr2-metadata.xml";
+		String targetIdpMD = "/[serverType]/[serverName]/[app]/[tenant]/idp.xml";
+
+		srcIdpMD = ReplaceUtility.renamePath(Paths.get(srcIdpMD), replace, replaceNamePatterns);
+		targetIdpMD = ReplaceUtility.renamePath(Paths.get(targetIdpMD), replace, replaceNamePatterns);
+
 		try {
-			Files.walkFileTree(Paths.get(basePath.getPath()), new FileVisitor<Path>() {
-
-				public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-					replace(dir);
-					return FileVisitResult.CONTINUE;
-				}
-
-				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-					replace(file);
-					return FileVisitResult.CONTINUE;
-				}
-
-				public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-					replace(file);
-					return FileVisitResult.CONTINUE;
-				}
-
-				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-					replace(dir);
-					return FileVisitResult.CONTINUE;
-				}
-
-			});
-		} catch (IOException e) {
-			throw new MojoExecutionException("Failed during traversing the directory. " + e);
+			FileUtils.copyFile(new File(basePath, srcIdpMD), new File(basePath, targetIdpMD));
+		} catch (IOException e1) {
+			getLog().error("Could not write IDP metadata. Reason was: " + e1);
 		}
-
-		for (Path fn : renameList) {
-			updateRenameMapping(fn);
-		}
-		
-		List<Path> sorted = new ArrayList<Path>(renameMapping.keySet());
-		Collections.sort(sorted , new Comparator<Path>() {
-
-			public int compare(Path o1, Path o2) {
-				int l1 = o1.toString().length();
-				int l2 = o2.toString().length();
-				
-				if(l1 > l2){
-					return 1;
-				}else if( l1 < l2){
-					return -1;
-				}
-				return 0;
-			}
-		});
-		
-		for (Path p : renameMapping.keySet()) {
-			try {
-				copyPaths(p, renameMapping.get(p));
-			} catch (IOException e) {
-				throw new MojoExecutionException("Failed to write to path: " + renameMapping.get(p));
-			}
-		}
-
-		
-		//now retraverse everything and delete placeholder heirarchies
-		
-		//cleanup();
-		
-	}
-		
-	void cleanup() throws MojoExecutionException{
+*/
 		try {
 			Files.walkFileTree(Paths.get(basePath.getPath()), new FileVisitor<Path>() {
 
@@ -206,58 +141,19 @@ public class ExecJava extends AbstractMojo {
 		} catch (IOException e) {
 			throw new MojoExecutionException("Failed during traversing the directory. " + e);
 		}
-	}
-
-	void replace(Path p) throws IOException{
-		List<String> linesBuffer = new ArrayList<String>();
-		String temp = "";
-
-		File current = p.toFile();
-
-		renameList.add(p);
-
-		if (current.isFile()) {
-			getLog().info("Replacing content for  " + current.getPath());
-			for (String line : FileUtils.readLines(current)) {
-				temp = line;
-				for (Entry<Object, Object> e : replace.entrySet()) {
-					// fetch the pattern for the key and replace it in line
-					temp = replacePatterns.get(e.getKey()).matcher(temp).replaceAll((String) e.getValue());
-				}
-				linesBuffer.add(temp);
-			}
-			FileUtils.writeLines(current, linesBuffer, false);
-		}
-	}
-
-	void updateRenameMapping(Path p) {		
-		String filename = p.toString();
-		String temp = ReplaceUtility.renamePath(p, replace, replaceNamePatterns);
-
-		if (!filename.equals(temp)) {
-			//String parentPath = p.getParent().toString() + '/';
-			renameMapping.put(p, Paths.get(temp));
-		}
 
 	}
-		
-	private void copyPaths(Path src, Path target) throws IOException{
-		if(src.toFile().isDirectory()){
-			FileUtils.copyDirectory(src.toFile(), target.toFile());
-		}else{	
-			FileUtils.copyFile(src.toFile(), target.toFile());
-		}		
-	}
-	
-	private void  handleDelete(Path p){
+
+	private void handleDelete(Path p) {
 		for (Entry<String, Pattern> e : replaceNamePatterns.entrySet()) {
 			// fetch the pattern for the key and replace it in line
 			String normalize = e.getValue().toString();
 			normalize = normalize.replaceAll("\\\\", "");
-			if(p.toString().contains(normalize)){
-				getLog().info("DEleteing: " + p.toString());
+			if (p.toString().contains(normalize)) {
+				getLog().info("Deleting: " + p.toString());
 				FileUtils.deleteQuietly(p.toFile());
 			}
 		}
 	}
+
 }

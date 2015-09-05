@@ -23,6 +23,11 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
+import static com.open.maven.plugin.common.ReplaceUtility.FILE_CONTENT_TEMPLATE_PREFIX;
+import static com.open.maven.plugin.common.ReplaceUtility.FILE_CONTENT_TEMPLATE_SUFFIX;
+import static com.open.maven.plugin.common.ReplaceUtility.FILE_NAME_TEMPLATE_PREFIX;
+import static com.open.maven.plugin.common.ReplaceUtility.FILE_NAME_TEMPLATE_SUFFIX;
+
 @Mojo(name = "cleanup")
 public class RemovePlaceholder extends AbstractMojo {
 
