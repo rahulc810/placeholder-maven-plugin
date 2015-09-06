@@ -19,11 +19,14 @@ import org.codehaus.plexus.util.cli.StreamConsumer;
 
 import com.open.maven.plugin.common.ReplaceUtility;
 
-@Mojo(name = "super")
-public class AfterProcessor extends AbstractMojo {
+@Mojo(name = "build")
+public class BuildProcessor extends AbstractMojo {
 
 	private boolean isInitialized;
 	private Properties replace;
+
+	@Parameter(defaultValue = "${project.build.directory}", property = "outputDir", required = false)
+	private File outputDirectory;
 
 	@Parameter(property = "project.basedir")
 	private File basePath;
@@ -31,11 +34,9 @@ public class AfterProcessor extends AbstractMojo {
 	@Parameter(property = "tenantPropLocation", required = true)
 	private String tenantPropLocation;
 
-	public AfterProcessor() throws FileNotFoundException, IOException {
+	public BuildProcessor() throws FileNotFoundException, IOException {
 		super();
-
 		replace = new Properties();
-
 	}
 
 	private void init() throws FileNotFoundException, IOException {
@@ -55,9 +56,9 @@ public class AfterProcessor extends AbstractMojo {
 			try {
 				init();
 			} catch (FileNotFoundException e) {
-				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
+				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation);
 			} catch (IOException e) {
-				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
+				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation);
 			}
 		}
 
@@ -70,7 +71,7 @@ public class AfterProcessor extends AbstractMojo {
 		cmd.addEnvironment("tenantPropLocation", System.getProperty("tenantPropLocation"));
 
 		Argument arg = new Commandline.Argument();
-		arg.setLine("-f 'tenant-root/pom.xml' com.open.maven.plugin:placeholder-maven-plugin:prepare com.open.maven.plugin:placeholder-maven-plugin:exec com.open.maven.plugin:placeholder-maven-plugin:cleanup");
+		arg.setLine("-f 'tenant-root/"+replace.getProperty("tenant")+"-"+ replace.getProperty("appliance.version") +"/pom.xml' clean install");
 		
 		
 		
@@ -92,6 +93,9 @@ public class AfterProcessor extends AbstractMojo {
 			
 		} catch (CommandLineException e) {
 			e.printStackTrace();
-		} 
+		} finally {
+
+		}
+
 	}
 }

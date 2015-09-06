@@ -30,11 +30,6 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_CONTENT_TEMPLATE_PREFIX;
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_CONTENT_TEMPLATE_SUFFIX;
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_NAME_TEMPLATE_PREFIX;
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_NAME_TEMPLATE_SUFFIX;
-
 public class JossoUtility {
 
 	private static final Pattern SP_NAME_KEY_IN_TEMPLATE = Pattern.compile("\\$\\{sp\\.name\\}");
@@ -194,9 +189,16 @@ public class JossoUtility {
 		}
 
 	}
+	
+	public static void copyKeyStoreToIdp(Path baseLocation, Path keyStoreLocation) throws IOException{
 
-	public static void main(String[] args) throws Exception {
-		updateBeans(Paths.get("/home/rahul/workspace/sswig/shared_services/tenant-root"), "sp1");
+		Path idauMetadataLocation = Paths.get(baseLocation.toString(),
+				"/tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/com/hcentive/iam/[tenant]/idau/[tenant]idp/" + keyStoreLocation.getFileName());
+
+		File src = keyStoreLocation.toFile();
+		File target = idauMetadataLocation.toFile();
+
+		FileUtils.copyFile(src, target);
 	}
 
 }

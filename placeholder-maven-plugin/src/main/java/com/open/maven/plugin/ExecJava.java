@@ -83,6 +83,17 @@ public class ExecJava extends AbstractMojo {
 			replace = new Properties();
 			replace.load(new FileInputStream(new File(tenantPropLocation)));
 
+			try {
+				replace.put("idpCert", ReplaceUtility.getCertificateFromKeyStore(
+						Paths.get(replace.getProperty("ks.idpKeystore")), replace.getProperty("ks.certificateAlias"),
+						replace.getProperty("ks.keystorePass")));
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			ReplaceUtility.updatePropertiesWithDefault(replace, basePath.toPath());
+
 			for (Object keyObj : this.replace.keySet()) {
 				if (keyObj == null)
 					continue;
@@ -109,9 +120,9 @@ public class ExecJava extends AbstractMojo {
 			try {
 				init();
 			} catch (FileNotFoundException e) {
-				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation);
+				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
 			} catch (IOException e) {
-				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation);
+				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
 			}
 		}
 
@@ -146,23 +157,23 @@ public class ExecJava extends AbstractMojo {
 		for (Path fn : renameList) {
 			updateRenameMapping(fn);
 		}
-		
+
 		List<Path> sorted = new ArrayList<Path>(renameMapping.keySet());
-		Collections.sort(sorted , new Comparator<Path>() {
+		Collections.sort(sorted, new Comparator<Path>() {
 
 			public int compare(Path o1, Path o2) {
 				int l1 = o1.toString().length();
 				int l2 = o2.toString().length();
-				
-				if(l1 > l2){
+
+				if (l1 > l2) {
 					return 1;
-				}else if( l1 < l2){
+				} else if (l1 < l2) {
 					return -1;
 				}
 				return 0;
 			}
 		});
-		
+
 		for (Path p : renameMapping.keySet()) {
 			try {
 				copyPaths(p, renameMapping.get(p));
@@ -171,14 +182,13 @@ public class ExecJava extends AbstractMojo {
 			}
 		}
 
-		
-		//now retraverse everything and delete placeholder heirarchies
-		
-		//cleanup();
-		
+		// now retraverse everything and delete placeholder heirarchies
+
+		// cleanup();
+
 	}
-		
-	void cleanup() throws MojoExecutionException{
+
+	void cleanup() throws MojoExecutionException {
 		try {
 			Files.walkFileTree(Paths.get(basePath.getPath()), new FileVisitor<Path>() {
 
@@ -208,7 +218,7 @@ public class ExecJava extends AbstractMojo {
 		}
 	}
 
-	void replace(Path p) throws IOException{
+	void replace(Path p) throws IOException {
 		List<String> linesBuffer = new ArrayList<String>();
 		String temp = "";
 
@@ -230,31 +240,31 @@ public class ExecJava extends AbstractMojo {
 		}
 	}
 
-	void updateRenameMapping(Path p) {		
+	void updateRenameMapping(Path p) {
 		String filename = p.toString();
 		String temp = ReplaceUtility.renamePath(p, replace, replaceNamePatterns);
 
 		if (!filename.equals(temp)) {
-			//String parentPath = p.getParent().toString() + '/';
+			// String parentPath = p.getParent().toString() + '/';
 			renameMapping.put(p, Paths.get(temp));
 		}
 
 	}
-		
-	private void copyPaths(Path src, Path target) throws IOException{
-		if(src.toFile().isDirectory()){
+
+	private void copyPaths(Path src, Path target) throws IOException {
+		if (src.toFile().isDirectory()) {
 			FileUtils.copyDirectory(src.toFile(), target.toFile());
-		}else{	
+		} else {
 			FileUtils.copyFile(src.toFile(), target.toFile());
-		}		
+		}
 	}
-	
-	private void  handleDelete(Path p){
+
+	private void handleDelete(Path p) {
 		for (Entry<String, Pattern> e : replaceNamePatterns.entrySet()) {
 			// fetch the pattern for the key and replace it in line
 			String normalize = e.getValue().toString();
 			normalize = normalize.replaceAll("\\\\", "");
-			if(p.toString().contains(normalize)){
+			if (p.toString().contains(normalize)) {
 				getLog().info("DEleteing: " + p.toString());
 				FileUtils.deleteQuietly(p.toFile());
 			}

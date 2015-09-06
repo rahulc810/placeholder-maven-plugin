@@ -14,6 +14,7 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 import com.open.maven.plugin.common.JossoUtility;
+import com.open.maven.plugin.common.ReplaceUtility;
 
 @Mojo(name = "prepare")
 public class BeforeProcessor extends AbstractMojo {
@@ -22,9 +23,6 @@ public class BeforeProcessor extends AbstractMojo {
 
 	private boolean isInitialized;
 	private Properties replace;
-
-	@Parameter(defaultValue = "${project.build.directory}", property = "outputDir", required = false)
-	private File outputDirectory;
 
 	@Parameter(property = "project.basedir")
 	private File basePath;
@@ -43,7 +41,7 @@ public class BeforeProcessor extends AbstractMojo {
 			replace = new Properties();
 			replace.load(new FileInputStream(new File(tenantPropLocation)));
 		}
-
+		ReplaceUtility.updatePropertiesWithDefault(replace, basePath.toPath());
 		this.basePath = this.basePath.getParentFile();
 
 		this.isInitialized = true;
@@ -55,9 +53,9 @@ public class BeforeProcessor extends AbstractMojo {
 			try {
 				init();
 			} catch (FileNotFoundException e) {
-				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation);
+				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
 			} catch (IOException e) {
-				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation);
+				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
 			}
 		}
 		
@@ -73,7 +71,6 @@ public class BeforeProcessor extends AbstractMojo {
 				getLog().error("Error accoured while adding placeholders for " + spKey, e);
 
 			}
-			//spKey = SP_NAME_KEY + i++;
 		}
 
 	}

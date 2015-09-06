@@ -23,10 +23,7 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_CONTENT_TEMPLATE_PREFIX;
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_CONTENT_TEMPLATE_SUFFIX;
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_NAME_TEMPLATE_PREFIX;
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_NAME_TEMPLATE_SUFFIX;
+import com.open.maven.plugin.common.ReplaceUtility;
 
 @Mojo(name = "cleanup")
 public class RemovePlaceholder extends AbstractMojo {
@@ -72,6 +69,8 @@ public class RemovePlaceholder extends AbstractMojo {
 			replace = new Properties();
 			replace.load(new FileInputStream(new File(tenantPropLocation)));
 
+			ReplaceUtility.updatePropertiesWithDefault(replace, basePath.toPath());
+			
 			for (Object keyObj : this.replace.keySet()) {
 				if (keyObj == null)
 					continue;
@@ -101,9 +100,9 @@ public class RemovePlaceholder extends AbstractMojo {
 			try {
 				init();
 			} catch (FileNotFoundException e) {
-				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation);
+				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
 			} catch (IOException e) {
-				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation);
+				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
 			}
 		}
 		
@@ -145,10 +144,9 @@ public class RemovePlaceholder extends AbstractMojo {
 			String normalize = e.getValue().toString();
 			normalize = normalize.replaceAll("\\\\", "");
 			if(p.toString().contains(normalize)){
-				getLog().info("DEleteing: " + p.toString());
+				getLog().info("Deleteing: " + p.toString());
 				FileUtils.deleteQuietly(p.toFile());
 			}
 		}
 	}
-
 }
