@@ -62,4 +62,15 @@ public class ReplaceUtility {
 			}
 		}
 	}
+	
+	public static String getStringValueAfterNullCheck(Map<Object, Object> lookup, String key){
+		
+		Object o = lookup.get(key);
+		if(o!=null){
+			return (String)o;
+		}else{
+			return "";
+		}
+	}
+	
 }

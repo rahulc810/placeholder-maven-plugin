@@ -55,8 +55,10 @@ public class AfterProcessor extends AbstractMojo {
 			try {
 				init();
 			} catch (FileNotFoundException e) {
+				e.printStackTrace();
 				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
 			} catch (IOException e) {
+				e.printStackTrace();
 				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
 			}
 		}
@@ -94,4 +96,5 @@ public class AfterProcessor extends AbstractMojo {
 			e.printStackTrace();
 		} 
 	}
+	
 }

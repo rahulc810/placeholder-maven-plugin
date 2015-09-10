@@ -63,10 +63,15 @@ public class BeforeProcessor extends AbstractMojo {
 		String spKey = "";
 		while (replace.keySet().contains(spKey = SP_NAME_KEY + ++i)) {
 			try {
-				JossoUtility.handleMetadata(basePath.toPath(), Paths.get((String) replace.get("sp.metadata")), spKey, (String) replace.get(spKey));
+				
+				String resourceDirectory = ReplaceUtility.getStringValueAfterNullCheck(replace, "resourceDirectory");
+				String spMetadata = ReplaceUtility.getStringValueAfterNullCheck(replace, "sp.metadata");
+				
+				JossoUtility.handleMetadata(basePath.toPath(), Paths.get(spMetadata), spKey, (String) replace.get(spKey));
 				JossoUtility.handleReferenceToMD(basePath.toPath(), spKey);
 				JossoUtility.updateIdpConfig(basePath.toPath(), spKey);
 				JossoUtility.updateBeans(basePath.toPath(), spKey);
+				JossoUtility.copyResources(basePath.toPath(), Paths.get(resourceDirectory));
 			} catch (Exception e) {
 				getLog().error("Error accoured while adding placeholders for " + spKey, e);
 

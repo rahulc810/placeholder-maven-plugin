@@ -2,12 +2,8 @@ package com.open.maven.plugin.common;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -28,7 +24,7 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.maven.plugin.MojoExecutionException;
+import org.codehaus.plexus.util.StringUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -53,6 +49,9 @@ public class JossoUtility {
 
 	public static void handleMetadata(Path baseLocation, Path metadataRoot, String spName, String spValue) throws IOException {
 
+		if(metadataRoot == null || StringUtils.isEmpty(metadataRoot.toString()) ){
+			return;
+		}
 		Path idauMetadataLocation = Paths.get(baseLocation.toString(),"/tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/com/hcentive/iam/[tenant]/idau/["
 				+ spName + "]/[" + spName + "]-samlr2-metadata.xml");
 
@@ -236,39 +235,21 @@ public class JossoUtility {
 		FileUtils.copyFile(src, target);
 	}
 	
-	public static void main(String[] args) {
-		File root = new File("/home/rahul/workspace/sswig/shared_services/tenant-root/");
-		
-		try {
-			Files.walkFileTree(Paths.get("/home/rahul/workspace/sswig/shared_services/tenant-root/"), new FileVisitor<Path>() {
+	public static void copyResources(Path baseLocation, Path src) throws IOException{
 
-				public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-					update(dir);
-					return FileVisitResult.CONTINUE;
-				}
-
-				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-					update(file);
-					return FileVisitResult.CONTINUE;
-				}
-
-				public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-					update(file);
-					return FileVisitResult.CONTINUE;
-				}
-
-				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-					update(dir);
-					return FileVisitResult.CONTINUE;
-				}
-
-			});
-		} catch (Exception e) {
-			e.printStackTrace();
+		if(src == null || StringUtils.isEmpty(src.toString()) ){
+			return;
 		}
 		
-	}
-	
+		Path brandingResourceLocation = Paths.get(baseLocation.toString(),
+				"/tenant-root/[tenant]/src/main/resources/org/atricore/idbus/capabilities/sso/ui/resources/");
+
+		Path scimResourceLocation = Paths.get(baseLocation.toString(),
+				"/tenant-root/[serverType]/[serverName]/[app]/[tenant]/[tenant]/");
+
+		FileUtils.copyDirectory(src.toFile(), brandingResourceLocation.toFile());
+		FileUtils.copyDirectory(src.toFile(), scimResourceLocation.toFile());
+	}	
 	
 	static void update(Path p){
 		
