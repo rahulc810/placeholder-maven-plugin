@@ -2,8 +2,12 @@ package com.open.maven.plugin.common;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -24,6 +28,7 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -33,6 +38,8 @@ import org.xml.sax.SAXException;
 public class JossoUtility {
 
 	private static final Pattern SP_NAME_KEY_IN_TEMPLATE = Pattern.compile("\\$\\{sp\\.name\\}");
+	private static final Pattern ENTITY_KEY_IN_TEMPLATE = Pattern.compile("\\$\\{entityId\\}");
+	
 
 	// create folder at
 	// /tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/com/hcentive/iam/[tenant]/iam/[spname]
@@ -46,9 +53,8 @@ public class JossoUtility {
 
 	public static void handleMetadata(Path baseLocation, Path metadataRoot, String spName, String spValue) throws IOException {
 
-		Path idauMetadataLocation = Paths.get(baseLocation.toString(),
-				"/tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/com/hcentive/iam/[tenant]/idau/["
-						+ spName + "]/[" + spName + "]-samlr2-metadata.xml");
+		Path idauMetadataLocation = Paths.get(baseLocation.toString(),"/tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/com/hcentive/iam/[tenant]/idau/["
+				+ spName + "]/[" + spName + "]-samlr2-metadata.xml");
 
 		File src = new File(metadataRoot.toFile(), spValue + ".xml");
 		File target = idauMetadataLocation.toFile();
@@ -59,15 +65,43 @@ public class JossoUtility {
 	public static void handleReferenceToMD(Path baseLocation, String spName) throws IOException {
 
 		Path idauConfigLocation = Paths.get(baseLocation.toString(),
-				"/tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/META-INF/spring/[" + spName + "]/[" + spName
-						+ "]-config.xml");
+				"/tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/META-INF/spring/[" 
+						+ spName + "]/[" + spName + "]-config.xml");
+				
 		Path template = Paths.get(baseLocation.toString(), "/tenant-root/sp.template-config.xml");
 
 		File src = template.toFile();
 		File target = idauConfigLocation.toFile();
 
 		FileUtils.copyFile(src, target);
+		
+		
+		//read and extract entityId
+	DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+	factory.setValidating(true);
+	factory.setIgnoringElementContentWhitespace(true);
+	String entityId = "\\$\\{" + spName + "\\}";
+	
+	
+	try {
+		DocumentBuilder builder = factory.newDocumentBuilder();
+		File file = Paths.get(baseLocation.toString(),"/tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/com/hcentive/iam/[tenant]/idau/["
+				+ spName + "]/[" + spName + "]-samlr2-metadata.xml").toFile();
+;
+		Document doc = builder.parse(file);
 
+		XPath xpath = XPathFactory.newInstance().newXPath();
+
+		XPathExpression expr = xpath.compile("/*[local-name() = 'EntityDescriptor']");
+		
+		Node entityNode = (Node) expr.evaluate(doc, XPathConstants.NODE);
+
+		entityId = entityNode.getAttributes().getNamedItem("entityID").getTextContent();
+		
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		// replace content: sp.name by incoming spName
 		String temp = "";
 		List<String> linesBuffer = new ArrayList<String>();
@@ -76,6 +110,7 @@ public class JossoUtility {
 
 			// fetch the pattern for the key and replace it in line
 			temp = SP_NAME_KEY_IN_TEMPLATE.matcher(temp).replaceAll("\\$\\{" + spName + "\\}");
+			temp = ENTITY_KEY_IN_TEMPLATE.matcher(temp).replaceAll(entityId);
 			linesBuffer.add(temp);
 		}
 		FileUtils.writeLines(target, linesBuffer, false);
@@ -200,5 +235,50 @@ public class JossoUtility {
 
 		FileUtils.copyFile(src, target);
 	}
+	
+	public static void main(String[] args) {
+		File root = new File("/home/rahul/workspace/sswig/shared_services/tenant-root/");
+		
+		try {
+			Files.walkFileTree(Paths.get("/home/rahul/workspace/sswig/shared_services/tenant-root/"), new FileVisitor<Path>() {
+
+				public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+					update(dir);
+					return FileVisitResult.CONTINUE;
+				}
+
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					update(file);
+					return FileVisitResult.CONTINUE;
+				}
+
+				public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+					update(file);
+					return FileVisitResult.CONTINUE;
+				}
+
+				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+					update(dir);
+					return FileVisitResult.CONTINUE;
+				}
+
+			});
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
+	
+	static void update(Path p){
+		
+		String filename = p.getFileName().toString().replaceAll("ahim", "[tenant]");
+		System.out.println("renaming " + p + ">>>>>" + p.getParent().toString() + "/" + filename);
+		Path t = Paths.get(p.getParent().toString() + "/" + filename);
+		
+		p.toFile().renameTo(t.toFile());
+		
+	}
+	
 
 }

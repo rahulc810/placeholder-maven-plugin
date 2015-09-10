@@ -55,6 +55,7 @@ public class ReplaceUtility {
 		Properties defaultProps = new Properties();
 		defaultProps.load(new FileInputStream(basePath.toString() + DEFAULT_PROPERTIES_LOCATION));
 		
+		//if the property is NA use default value, If default is also NA, set value as 
 		for(Entry<Object, Object> entry: defaultProps.entrySet() ){
 			if(!inc.containsKey(entry.getKey()) || inc.get(entry.getKey()).equals(FLAG_FOR_DEFAULT_FALLBACK)){
 				inc.put(entry.getKey(), entry.getValue());
