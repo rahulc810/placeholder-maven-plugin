@@ -25,6 +25,11 @@ public class ReplaceUtility {
 	
 	public static final String FLAG_FOR_DEFAULT_FALLBACK = "NA";
 	public static final String DEFAULT_PROPERTIES_LOCATION = "/default.properties";
+	public static final String IDP_URL_PART_KEY = "urlTenant";
+	public static final String BRANDING_NAME_KEY = "urlTenant";
+	public static final String TENANT_KEY = "tenant";
+	
+	public static final Pattern IS_PLACEHODLER=Pattern.compile(".*?\\$\\{(.*?)\\}.*?");
 
 	public static String renamePath(Path p, Map<Object, Object> target, Map<String, Pattern> lookUp) {
 		String temp = "";
@@ -60,6 +65,16 @@ public class ReplaceUtility {
 			if(!inc.containsKey(entry.getKey()) || inc.get(entry.getKey()).equals(FLAG_FOR_DEFAULT_FALLBACK)){
 				inc.put(entry.getKey(), entry.getValue());
 			}
+		}
+		
+		
+	}
+	
+	
+	public static void updatePropertiesWithSpecialConventions(Properties inc, Path basePath) throws FileNotFoundException, IOException{
+		if("".equals(getStringValueAfterNullCheck(inc, IDP_URL_PART_KEY))){
+			//if urlTenant is empty use tenant in uppercase
+			inc.put(IDP_URL_PART_KEY, getStringValueAfterNullCheck(inc, TENANT_KEY).toUpperCase());
 		}
 	}
 	

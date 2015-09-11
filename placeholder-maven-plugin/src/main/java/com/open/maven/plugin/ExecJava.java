@@ -4,6 +4,7 @@ import static com.open.maven.plugin.common.ReplaceUtility.FILE_CONTENT_TEMPLATE_
 import static com.open.maven.plugin.common.ReplaceUtility.FILE_CONTENT_TEMPLATE_SUFFIX;
 import static com.open.maven.plugin.common.ReplaceUtility.FILE_NAME_TEMPLATE_PREFIX;
 import static com.open.maven.plugin.common.ReplaceUtility.FILE_NAME_TEMPLATE_SUFFIX;
+import static com.open.maven.plugin.common.ReplaceUtility.IS_PLACEHODLER;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.FileUtils;
@@ -83,16 +85,32 @@ public class ExecJava extends AbstractMojo {
 			replace = new Properties();
 			replace.load(new FileInputStream(new File(tenantPropLocation)));
 
+			ReplaceUtility.updatePropertiesWithDefault(replace, basePath.toPath());
+			ReplaceUtility.updatePropertiesWithSpecialConventions(replace, basePath.toPath());
+
 			try {
-				replace.put("idpCert", ReplaceUtility.getCertificateFromKeyStore(
-						Paths.get(replace.getProperty("ks.idpKeystore")), replace.getProperty("ks.certificateAlias"),
-						replace.getProperty("ks.keystorePass")));
+				replace.put(
+						"idpCert",
+						ReplaceUtility.getCertificateFromKeyStore(
+								Paths.get(basePath.toString(), replace.getProperty("ks.idpKeystore")),
+								replace.getProperty("ks.certificateAlias"), replace.getProperty("ks.keystorePass")));
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			
-			ReplaceUtility.updatePropertiesWithDefault(replace, basePath.toPath());
+			//resolve indirections
+			for (Entry<Object, Object> e : replace.entrySet()) {
+				Object valueObj = e.getValue();
+				String value = valueObj==null?"": (String)e.getValue();
+				Matcher m = IS_PLACEHODLER.matcher(value);
+				
+				while(value!= null && m.find()){
+					String extractedVal = m.group(1);
+					extractedVal = replace.getProperty(extractedVal);
+					e.setValue(IS_PLACEHODLER.matcher(value).replaceAll(extractedVal));
+				}
+			}
 
 			for (Object keyObj : this.replace.keySet()) {
 				if (keyObj == null)
@@ -116,75 +134,80 @@ public class ExecJava extends AbstractMojo {
 
 	public void execute() throws MojoExecutionException, MojoFailureException {
 
-		if (!isInitialized) {
-			try {
-				init();
-			} catch (FileNotFoundException e) {
-				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
-			} catch (IOException e) {
-				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
-			}
-		}
-
 		try {
-			Files.walkFileTree(Paths.get(basePath.getPath()), new FileVisitor<Path>() {
-
-				public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-					replace(dir);
-					return FileVisitResult.CONTINUE;
+			if (!isInitialized) {
+				try {
+					init();
+				} catch (FileNotFoundException e) {
+					throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
+				} catch (IOException e) {
+					throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
 				}
-
-				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-					replace(file);
-					return FileVisitResult.CONTINUE;
-				}
-
-				public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-					replace(file);
-					return FileVisitResult.CONTINUE;
-				}
-
-				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-					replace(dir);
-					return FileVisitResult.CONTINUE;
-				}
-
-			});
-		} catch (IOException e) {
-			throw new MojoExecutionException("Failed during traversing the directory. " + e);
-		}
-
-		for (Path fn : renameList) {
-			updateRenameMapping(fn);
-		}
-
-		List<Path> sorted = new ArrayList<Path>(renameMapping.keySet());
-		Collections.sort(sorted, new Comparator<Path>() {
-
-			public int compare(Path o1, Path o2) {
-				int l1 = o1.toString().length();
-				int l2 = o2.toString().length();
-
-				if (l1 > l2) {
-					return 1;
-				} else if (l1 < l2) {
-					return -1;
-				}
-				return 0;
 			}
-		});
 
-		for (Path p : renameMapping.keySet()) {
 			try {
-				copyPaths(p, renameMapping.get(p));
+				Files.walkFileTree(Paths.get(basePath.getPath()), new FileVisitor<Path>() {
+
+					public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+						replace(dir);
+						return FileVisitResult.CONTINUE;
+					}
+
+					public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+						replace(file);
+						return FileVisitResult.CONTINUE;
+					}
+
+					public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+						replace(file);
+						return FileVisitResult.CONTINUE;
+					}
+
+					public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+						replace(dir);
+						return FileVisitResult.CONTINUE;
+					}
+
+				});
 			} catch (IOException e) {
-				throw new MojoExecutionException("Failed to write to path: " + renameMapping.get(p));
+				throw new MojoExecutionException("Failed during traversing the directory. " + e);
 			}
+
+			for (Path fn : renameList) {
+				updateRenameMapping(fn);
+			}
+
+			List<Path> sorted = new ArrayList<Path>(renameMapping.keySet());
+			Collections.sort(sorted, new Comparator<Path>() {
+
+				public int compare(Path o1, Path o2) {
+					int l1 = o1.toString().length();
+					int l2 = o2.toString().length();
+
+					if (l1 > l2) {
+						return 1;
+					} else if (l1 < l2) {
+						return -1;
+					}
+					return 0;
+				}
+			});
+
+			for (Path p : renameMapping.keySet()) {
+				try {
+					copyPaths(p, renameMapping.get(p));
+				} catch (IOException e) {
+					throw new MojoExecutionException("Failed to write to path: " + renameMapping.get(p));
+				}
+			}
+
+			// now retraverse everything and delete placeholder heirarchies
+
+			// cleanup();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-
-		// now retraverse everything and delete placeholder heirarchies
-
-		// cleanup();
 
 	}
 
@@ -228,6 +251,7 @@ public class ExecJava extends AbstractMojo {
 
 		if (current.isFile()) {
 			getLog().info("Replacing content for  " + current.getPath());
+						
 			for (String line : FileUtils.readLines(current)) {
 				temp = line;
 				for (Entry<Object, Object> e : replace.entrySet()) {
@@ -269,5 +293,27 @@ public class ExecJava extends AbstractMojo {
 				FileUtils.deleteQuietly(p.toFile());
 			}
 		}
+	}
+	
+	public static void main(String[] args) {
+
+		Map<String, String> replace = new HashMap<String, String>();
+		replace.put("url", "http://${appliance}.com");
+		replace.put("appliance", "${tenant}");
+		replace.put("tenant", "cmq");
+		
+		
+		for (Entry<String, String> e : replace.entrySet()) {
+			Object valueObj = e.getValue();
+			String value = valueObj==null?"": (String)e.getValue();
+			Matcher m = IS_PLACEHODLER.matcher(value);
+			
+			while(value!= null && m.find()){
+				String extractedVal = m.group(1);
+				extractedVal = replace.get(extractedVal);
+				e.setValue(IS_PLACEHODLER.matcher(value).replaceAll(extractedVal));
+			}
+		}
+	
 	}
 }

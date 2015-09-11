@@ -1,10 +1,12 @@
 package com.open.maven.plugin.common;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -36,17 +38,21 @@ public class JossoUtility {
 	private static final Pattern SP_NAME_KEY_IN_TEMPLATE = Pattern.compile("\\$\\{sp\\.name\\}");
 	private static final Pattern ENTITY_KEY_IN_TEMPLATE = Pattern.compile("\\$\\{entityId\\}");
 	
+	//Some resources have placeholders, so we dont want them to be overritten
+	private static final List<String> EXCLUDED_RECOURCES = Arrays.asList(new String[]{"labels.json","labels_es.json", "app.js"});
+	
+	private static final FileFilter FILTER = new FileFilter() {
+		
+		public boolean accept(File pathname) {
+	
+			if(EXCLUDED_RECOURCES.contains(pathname.toPath().getFileName().toString())){
+				return false;
+			}
 
-	// create folder at
-	// /tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/com/hcentive/iam/[tenant]/iam/[spname]
-	// copy contents of [sp.metadata]/[spname].xml to
-	// /tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/com/hcentive/iam/[tenant]/iam/[spname]/[spname]-samlr2-metadata.xml
-
-	// create folder at
-	// /tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/META-INF/spring/[spname]
-	// copy contents of /[sp.name]-config.xml to
-	// /tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/META-INF/spring/
-
+			return true;
+		}
+	};
+	
 	public static void handleMetadata(Path baseLocation, Path metadataRoot, String spName, String spValue) throws IOException {
 
 		if(metadataRoot == null || StringUtils.isEmpty(metadataRoot.toString()) ){
@@ -225,18 +231,19 @@ public class JossoUtility {
 	}
 	
 	public static void copyKeyStoreToIdp(Path baseLocation, Path keyStoreLocation) throws IOException{
-
+		//	keyStoreLocation is relative path
+		
 		Path idauMetadataLocation = Paths.get(baseLocation.toString(),
 				"/tenant-root/[tenant]-[appliance.version]/idau/src/main/resources/com/hcentive/iam/[tenant]/idau/[tenant]idp/" + keyStoreLocation.getFileName());
 
-		File src = keyStoreLocation.toFile();
+		File src = Paths.get(baseLocation.toString(),keyStoreLocation.toString()).toFile();
 		File target = idauMetadataLocation.toFile();
 
 		FileUtils.copyFile(src, target);
 	}
 	
 	public static void copyResources(Path baseLocation, Path src) throws IOException{
-
+		
 		if(src == null || StringUtils.isEmpty(src.toString()) ){
 			return;
 		}
@@ -247,8 +254,8 @@ public class JossoUtility {
 		Path scimResourceLocation = Paths.get(baseLocation.toString(),
 				"/tenant-root/[serverType]/[serverName]/[app]/[tenant]/[tenant]/");
 
-		FileUtils.copyDirectory(src.toFile(), brandingResourceLocation.toFile());
-		FileUtils.copyDirectory(src.toFile(), scimResourceLocation.toFile());
+		FileUtils.copyDirectory(src.toFile(), brandingResourceLocation.toFile(), FILTER);
+		FileUtils.copyDirectory(src.toFile(), scimResourceLocation.toFile(), FILTER);
 	}	
 	
 	static void update(Path p){
