@@ -5,7 +5,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -38,10 +40,8 @@ public class BeforeProcessor extends AbstractMojo {
 
 	private void init() throws FileNotFoundException, IOException {
 		if (replace == null || replace.size() < 1) {
-			replace = new Properties();
-			replace.load(new FileInputStream(new File(tenantPropLocation)));
+			replace = ReplaceUtility.resolveBaseProperties(basePath, tenantPropLocation, getLog());
 		}
-		ReplaceUtility.updatePropertiesWithDefault(replace, basePath.toPath());
 		this.basePath = this.basePath.getParentFile();
 
 		this.isInitialized = true;
@@ -59,26 +59,38 @@ public class BeforeProcessor extends AbstractMojo {
 			}
 		}
 		
+		String spMetadata = ReplaceUtility.getStringValueAfterNullCheck(replace, "sp.metadata");
+		
+		Set<String> spKeyNames = new HashSet<String>();
+				
 		int i = 0;
-		String spKey = "";
-		while (replace.keySet().contains(spKey = SP_NAME_KEY + ++i)) {
+		String spKeyName = "";
+				
+		while (replace.keySet().contains(spKeyName = SP_NAME_KEY + ++i)) {
+			spKeyNames.add(spKeyName);
+		}
+		
+		//If no specifically names sps, include every xml under the spmetadata location
+		if(spKeyNames.size() < 1){
+			spKeyNames.addAll(JossoUtility.prepareListOfSPMetadataXMLs(Paths.get(spMetadata)));
+		}
+				
+		for (String spKey : spKeyNames) {
 			try {
 				
 				String baseResourceDirectory = ReplaceUtility.getStringValueAfterNullCheck(replace, "baseResourceDirectory");
 				String resourceDirectory = ReplaceUtility.getStringValueAfterNullCheck(replace, "resourceDirectory");
-				String spMetadata = ReplaceUtility.getStringValueAfterNullCheck(replace, "sp.metadata");
 				
 				JossoUtility.handleMetadata(basePath.toPath(), Paths.get(spMetadata), spKey, (String) replace.get(spKey));
 				JossoUtility.handleReferenceToMD(basePath.toPath(), spKey);
 				JossoUtility.updateIdpConfig(basePath.toPath(), spKey);
 				JossoUtility.updateBeans(basePath.toPath(), spKey);
 				//Copy default resources
-				JossoUtility.copyResources(basePath.toPath(), Paths.get(baseResourceDirectory));
+				JossoUtility.copyResources(basePath.toPath(), Paths.get(baseResourceDirectory), false);
 				//Copy tenant specific resources
-				JossoUtility.copyResources(basePath.toPath(), Paths.get(resourceDirectory));
+				JossoUtility.copyResources(basePath.toPath(), Paths.get(resourceDirectory),true);
 			} catch (Exception e) {
 				getLog().error("Error accoured while adding placeholders for " + spKey, e);
-
 			}
 		}
 

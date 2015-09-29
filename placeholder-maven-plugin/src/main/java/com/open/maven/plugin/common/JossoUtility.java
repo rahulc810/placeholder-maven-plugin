@@ -3,11 +3,17 @@ package com.open.maven.plugin.common;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -26,6 +32,7 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.codehaus.plexus.util.StringUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -39,13 +46,15 @@ public class JossoUtility {
 	private static final Pattern ENTITY_KEY_IN_TEMPLATE = Pattern.compile("\\$\\{entityId\\}");
 	
 	//Some resources have placeholders, so we dont want them to be overritten
-	private static final List<String> EXCLUDED_RECOURCES = Arrays.asList(new String[]{"labels.json","labels_es.json", "app.js"});
+	private static final List<String> EXCLUDED_RECOURCES_FOR_COPY = Arrays.asList(new String[]{"labels.json","labels_es.json", "app.js"});
+	
+	private static final List<String> EXCLUDED_RECOURCES_FOR_REPLACE = Arrays.asList(new String[]{".jks"});
 	
 	private static final FileFilter FILTER = new FileFilter() {
 		
 		public boolean accept(File pathname) {
 	
-			if(EXCLUDED_RECOURCES.contains(pathname.toPath().getFileName().toString())){
+			if(EXCLUDED_RECOURCES_FOR_COPY.contains(pathname.toPath().getFileName().toString())){
 				return false;
 			}
 
@@ -242,10 +251,14 @@ public class JossoUtility {
 		FileUtils.copyFile(src, target);
 	}
 	
-	public static void copyResources(Path baseLocation, Path src) throws IOException{
+	public static void copyResources(Path baseLocation, Path src, boolean copyToScim) throws IOException{
 		
 		if(src == null || StringUtils.isEmpty(src.toString()) ){
 			return;
+		}
+		
+		if(!src.isAbsolute()){
+			src = Paths.get(baseLocation.toString() + src.toString());
 		}
 		
 		Path brandingResourceLocation = Paths.get(baseLocation.toString(),
@@ -255,7 +268,9 @@ public class JossoUtility {
 				"/tenant-root/[serverType]/[serverName]/[app]/[tenant]/[tenant]/");
 
 		FileUtils.copyDirectory(src.toFile(), brandingResourceLocation.toFile(), FILTER);
-		FileUtils.copyDirectory(src.toFile(), scimResourceLocation.toFile(), FILTER);
+		if(copyToScim){			
+			FileUtils.copyDirectory(src.toFile(), scimResourceLocation.toFile(), FILTER);
+		}
 	}	
 	
 	static void update(Path p){
@@ -266,6 +281,43 @@ public class JossoUtility {
 		
 		p.toFile().renameTo(t.toFile());
 		
+	}
+	
+	public static Set<String> prepareListOfSPMetadataXMLs(Path basePath){
+		final Set<String> spKeyNames = new HashSet<String>();
+		try {
+			Files.walkFileTree(basePath, new FileVisitor<Path>() {
+
+				public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					if(file.getFileName().toString().endsWith(".xml")){
+						spKeyNames.add(file.getFileName().toString().split("\\.xml")[0]);
+					}
+					return FileVisitResult.CONTINUE;
+				}
+
+				public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+
+				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+
+			});
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		return spKeyNames;
+	}
+	
+	
+	public static void main(String[] args) {
+		System.out.println(prepareListOfSPMetadataXMLs(Paths.get("/home/rahul/workspace/sso/shared_services/IdentityManager/")));
 	}
 	
 

@@ -1,13 +1,8 @@
 package com.open.maven.plugin;
 
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_CONTENT_TEMPLATE_PREFIX;
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_CONTENT_TEMPLATE_SUFFIX;
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_NAME_TEMPLATE_PREFIX;
-import static com.open.maven.plugin.common.ReplaceUtility.FILE_NAME_TEMPLATE_SUFFIX;
 import static com.open.maven.plugin.common.ReplaceUtility.IS_PLACEHODLER;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -81,51 +76,12 @@ public class ExecJava extends AbstractMojo {
 	}
 
 	private void init() throws FileNotFoundException, IOException {
-		if (replace == null || replace.size() < 1) {
-			replace = new Properties();
-			replace.load(new FileInputStream(new File(tenantPropLocation)));
-
-			ReplaceUtility.updatePropertiesWithDefault(replace, basePath.toPath());
-			ReplaceUtility.updatePropertiesWithSpecialConventions(replace, basePath.toPath());
-
-			try {
-				replace.put(
-						"idpCert",
-						ReplaceUtility.getCertificateFromKeyStore(
-								Paths.get(basePath.toString(), replace.getProperty("ks.idpKeystore")),
-								replace.getProperty("ks.certificateAlias"), replace.getProperty("ks.keystorePass")));
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+		if (replace == null || replace.size() < 1) {			
+			replace = ReplaceUtility.resolveBaseProperties(basePath, tenantPropLocation, getLog());
+			ReplaceUtility.updateRegexMaps(replacePatterns, replaceNamePatterns, replace);
 			
-			//resolve indirections
-			for (Entry<Object, Object> e : replace.entrySet()) {
-				Object valueObj = e.getValue();
-				String value = valueObj==null?"": (String)e.getValue();
-				Matcher m = IS_PLACEHODLER.matcher(value);
-				
-				while(value!= null && m.find()){
-					String extractedVal = m.group(1);
-					extractedVal = replace.getProperty(extractedVal);
-					e.setValue(IS_PLACEHODLER.matcher(value).replaceAll(extractedVal));
-				}
-			}
-
-			for (Object keyObj : this.replace.keySet()) {
-				if (keyObj == null)
-					continue;
-
-				String key = (String) keyObj;
-
-				replacePatterns.put(key,
-						Pattern.compile(FILE_CONTENT_TEMPLATE_PREFIX + key + FILE_CONTENT_TEMPLATE_SUFFIX));
-				replaceNamePatterns.put(key,
-						Pattern.compile(FILE_NAME_TEMPLATE_PREFIX + key + FILE_NAME_TEMPLATE_SUFFIX));
-
-				getLog().debug(replacePatterns.toString());
-				getLog().debug(replaceNamePatterns.toString());
-			}
+			getLog().debug(replacePatterns.toString());
+			getLog().debug(replaceNamePatterns.toString());
 
 		}
 
@@ -242,6 +198,13 @@ public class ExecJava extends AbstractMojo {
 	}
 
 	void replace(Path p) throws IOException {
+		
+		if(p.getFileName().endsWith(".jks")){
+			//Don't try to read jks file.
+			return;
+		}
+		
+		
 		List<String> linesBuffer = new ArrayList<String>();
 		String temp = "";
 
@@ -289,7 +252,7 @@ public class ExecJava extends AbstractMojo {
 			String normalize = e.getValue().toString();
 			normalize = normalize.replaceAll("\\\\", "");
 			if (p.toString().contains(normalize)) {
-				getLog().info("DEleteing: " + p.toString());
+				getLog().info("Deleteing: " + p.toString());
 				FileUtils.deleteQuietly(p.toFile());
 			}
 		}

@@ -1,7 +1,6 @@
 package com.open.maven.plugin;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Properties;
@@ -40,10 +39,9 @@ public class AfterProcessor extends AbstractMojo {
 
 	private void init() throws FileNotFoundException, IOException {
 		if (replace == null || replace.size() < 1) {
-			replace = new Properties();
-			replace.load(new FileInputStream(new File(tenantPropLocation)));
-		}
-		ReplaceUtility.updatePropertiesWithDefault(replace, basePath.toPath());
+			
+			replace = ReplaceUtility.resolveBaseProperties(basePath, tenantPropLocation, getLog());
+		}		
 		this.basePath = this.basePath.getParentFile();
 
 		this.isInitialized = true;

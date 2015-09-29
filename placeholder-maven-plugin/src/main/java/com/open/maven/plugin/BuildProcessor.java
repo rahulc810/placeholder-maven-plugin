@@ -41,10 +41,8 @@ public class BuildProcessor extends AbstractMojo {
 
 	private void init() throws FileNotFoundException, IOException {
 		if (replace == null || replace.size() < 1) {
-			replace = new Properties();
-			replace.load(new FileInputStream(new File(tenantPropLocation)));
+			replace = ReplaceUtility.resolveBaseProperties(basePath, tenantPropLocation, getLog());
 		}
-		ReplaceUtility.updatePropertiesWithDefault(replace, basePath.toPath());
 		this.basePath = this.basePath.getParentFile();
 
 		this.isInitialized = true;

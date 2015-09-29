@@ -1,7 +1,6 @@
 package com.open.maven.plugin;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -27,12 +26,6 @@ import com.open.maven.plugin.common.ReplaceUtility;
 
 @Mojo(name = "cleanup")
 public class RemovePlaceholder extends AbstractMojo {
-
-	private static final String FILE_NAME_TEMPLATE_PREFIX = "\\[";
-	private static final String FILE_NAME_TEMPLATE_SUFFIX = "\\]";
-
-	private static final String FILE_CONTENT_TEMPLATE_PREFIX = "\\$\\{";
-	private static final String FILE_CONTENT_TEMPLATE_SUFFIX = "\\}";
 
 	private boolean isInitialized;
 	private Properties replace;
@@ -66,29 +59,14 @@ public class RemovePlaceholder extends AbstractMojo {
 
 	private void init() throws FileNotFoundException, IOException {
 		if (replace == null || replace.size() < 1) {
-			replace = new Properties();
-			replace.load(new FileInputStream(new File(tenantPropLocation)));
+			replace = ReplaceUtility.resolveBaseProperties(basePath, tenantPropLocation, getLog());
+			ReplaceUtility.updateRegexMaps(replacePatterns, replaceNamePatterns, replace);
 
-			ReplaceUtility.updatePropertiesWithDefault(replace, basePath.toPath());
-			
-			for (Object keyObj : this.replace.keySet()) {
-				if (keyObj == null)
-					continue;
-
-				String key = (String) keyObj;
-
-				replacePatterns.put(key,
-						Pattern.compile(FILE_CONTENT_TEMPLATE_PREFIX + key + FILE_CONTENT_TEMPLATE_SUFFIX));
-				replaceNamePatterns.put(key,
-						Pattern.compile(FILE_NAME_TEMPLATE_PREFIX + key + FILE_NAME_TEMPLATE_SUFFIX));
-
-				getLog().debug(replacePatterns.toString());
-				getLog().debug(replaceNamePatterns.toString());
-			}
+			getLog().debug(replacePatterns.toString());
+			getLog().debug(replaceNamePatterns.toString());
 
 		}
-		
-		
+
 		this.basePath = this.basePath.getParentFile();
 
 		this.isInitialized = true;
@@ -105,7 +83,6 @@ public class RemovePlaceholder extends AbstractMojo {
 				throw new MojoExecutionException("Could not load properties :" + tenantPropLocation, e);
 			}
 		}
-		
 
 		try {
 			Files.walkFileTree(Paths.get(basePath.getPath()), new FileVisitor<Path>() {
@@ -134,16 +111,15 @@ public class RemovePlaceholder extends AbstractMojo {
 		} catch (IOException e) {
 			throw new MojoExecutionException("Failed during traversing the directory. " + e);
 		}
-	
-		
+
 	}
-	
-	private void  handleDelete(Path p){
+
+	private void handleDelete(Path p) {
 		for (Entry<String, Pattern> e : replaceNamePatterns.entrySet()) {
 			// fetch the pattern for the key and replace it in line
 			String normalize = e.getValue().toString();
 			normalize = normalize.replaceAll("\\\\", "");
-			if(p.toString().contains(normalize)){
+			if (p.toString().contains(normalize)) {
 				getLog().info("Deleteing: " + p.toString());
 				FileUtils.deleteQuietly(p.toFile());
 			}
