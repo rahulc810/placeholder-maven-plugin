@@ -1,5 +1,5 @@
 # placeholder-maven-plugin
 
-Let's add a text here!
+Let's add a nothing here!
 
 Edited after staging
