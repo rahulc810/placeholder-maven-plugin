@@ -1,5 +1,3 @@
 # placeholder-maven-plugin
 
-Let's add a text here!
-
-Edited after staging
+Extention of maven-relacer-plugin, customized for creating dynamic file system heirarchy for maven projects before build and deploy.
